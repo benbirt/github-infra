@@ -1,0 +1,275 @@
+name: Update pins
+
+# Advances the pins in a Bazel repository that Dependabot cannot: the Bazel
+# version, the bazel_dep versions from the Bazel Central Registry, the Node
+# version and modules followed by git commit. Each gets its own branch
+# (update/<pin>) and pull request.
+#
+# Dependabot's Bazel support evaluates MODULE.bazel without the files that
+# module extensions read (rules_js reads package.json and
+# pnpm-workspace.yaml, gazelle's go_deps reads go.mod), so it fails in any
+# repository that uses them.
+#
+# The branch is pushed and the pull request opened with a personal token
+# (the AUTOMATION_TOKEN secret) rather than GITHUB_TOKEN, whose pushes and
+# merges trigger no workflows: CI would not run on the pull request, and the
+# merge would not be deployed.
+#
+# See README.md for the inputs and an example caller.
+
+on:
+  workflow_call:
+    inputs:
+      pins:
+        description: >-
+          Which pins to update, separated by spaces: any of bazel, modules
+          and node. node does nothing in a repository without rules_nodejs.
+        type: string
+        default: bazel modules node
+      skip_modules:
+        description: >-
+          bazel_dep names never to bump, separated by spaces. Modules named
+          in an override (git_override and the like) are always skipped.
+        type: string
+        default: ""
+      bazelversion_files:
+        description: >-
+          The .bazelversion files to update together, separated by spaces.
+          Glob patterns are expanded.
+        type: string
+        default: .bazelversion
+      commits:
+        description: >-
+          Modules followed by git commit, one per line: the module name and
+          the branch to follow, separated by a space. The module needs a
+          git_override in MODULE.bazel, whose remote is used.
+        type: string
+        default: ""
+      auto_merge:
+        description: Whether to turn on auto-merge (squash) for the pull requests.
+        type: boolean
+        default: true
+    secrets:
+      AUTOMATION_TOKEN:
+        description: >-
+          A fine-grained personal access token with read and write access to
+          contents and pull requests in the calling repository.
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      base: ${{ steps.plan.outputs.base }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      # One matrix entry per pull request: one per pin in `pins`, and one per
+      # module in `commits`.
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PINS: ${{ inputs.pins }}
+          COMMITS: ${{ inputs.commits }}
+        run: |
+          entries=()
+          for pin in $PINS; do
+            case "$pin" in
+              bazel | modules | node) entries+=("$(jq -cn --arg pin "$pin" '{pin: $pin, branch: "update/\($pin)"}')") ;;
+              *) echo "::error::unknown pin '$pin' in pins: use bazel, modules or node"; exit 1 ;;
+            esac
+          done
+          while read -r module ref extra; do
+            [[ -z "$module" || "$module" == \#* ]] && continue
+            [[ -n "$ref" && -z "$extra" ]] || { echo "::error::each line of commits must be a module name and a branch"; exit 1; }
+            entries+=("$(jq -cn --arg module "$module" --arg ref "$ref" '{pin: "commit", module: $module, ref: $ref, branch: "update/\($module)"}')")
+          done <<< "$COMMITS"
+          [ "${#entries[@]}" -gt 0 ] || { echo "::error::nothing to update: pins and commits are both empty"; exit 1; }
+          echo "matrix=$(printf '%s\n' "${entries[@]}" | jq -cs '{include: .}')" >> "$GITHUB_OUTPUT"
+          # The default branch, which every update starts from and targets,
+          # whichever branch this run was started on.
+          echo "base=$(gh api "repos/$GITHUB_REPOSITORY" --jq .default_branch)" >> "$GITHUB_OUTPUT"
+
+  update:
+    needs: plan
+    name: ${{ matrix.branch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    concurrency:
+      group: update-pins-${{ matrix.branch }}
+    env:
+      BRANCH: ${{ matrix.branch }}
+    steps:
+      # No credentials are left in the checkout: the steps below run newly
+      # fetched code (Bazel, module extensions), and the token is given to
+      # the last step alone.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.base }}
+          persist-credentials: false
+
+      # The latest release, written to every file in bazelversion_files:
+      # bazelisk reads the nearest one, so nested workspaces carry their own
+      # copy, which must agree with the root's.
+      - name: Update the Bazel version
+        if: matrix.pin == 'bazel'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BAZELVERSION_FILES: ${{ inputs.bazelversion_files }}
+        run: |
+          # shellcheck disable=SC2206 # split on spaces and expand globs
+          files=($BAZELVERSION_FILES)
+          for f in "${files[@]}"; do
+            [ -f "$f" ] || { echo "::error::bazelversion_files: no file matches '$f'"; exit 1; }
+          done
+          new=$(gh api repos/bazelbuild/bazel/releases/latest --jq .tag_name)
+          [[ "$new" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::unexpected Bazel release '$new'"; exit 1; }
+          old=$(cat "${files[0]}")
+          # Only ever move forwards.
+          if [ "$(printf '%s\n' "$old" "$new" | sort -V | tail -n 1)" = "$new" ]; then
+            for f in "${files[@]}"; do echo "$new" > "$f"; done
+          fi
+          {
+            echo "TITLE=Update Bazel to $new"
+            echo "BODY=https://github.com/bazelbuild/bazel/releases/tag/$new"
+          } >> "$GITHUB_ENV"
+
+      # Each bazel_dep in the root MODULE.bazel to the newest version in the
+      # registry that is not yanked and not a pre-release.
+      - name: Update the Bazel modules
+        if: matrix.pin == 'modules'
+        env:
+          SKIP_MODULES: ${{ inputs.skip_modules }}
+        run: |
+          # A module named in an override does not come from the registry at
+          # the version its bazel_dep names.
+          overridden=$(sed -n -E 's/.*module_name = "([^"]+)".*/\1/p' MODULE.bazel)
+          skip=" $(printf '%s\n%s\n' "$SKIP_MODULES" "$overridden" | tr -s '[:space:]' ' ') "
+          changes=()
+          while read -r name old; do
+            [[ "$skip" == *" $name "* ]] && continue
+            new=$(curl -fsS "https://bcr.bazel.build/modules/$name/metadata.json" |
+              jq -r '(.yanked_versions // {}) as $yanked | .versions[] | select($yanked[.] | not) | select(test("^[0-9]+(\\.[0-9]+)*$"))' |
+              sort -V | tail -n 1)
+            [ -n "$new" ] || { echo "::error::no released version of $name in the registry"; exit 1; }
+            # Only ever move forwards.
+            if [ "$new" != "$old" ] && [ "$(printf '%s\n' "$old" "$new" | sort -V | tail -n 1)" = "$new" ]; then
+              sed -i -E 's/^(bazel_dep\(name = "'"$name"'", version = ")[^"]+/\1'"$new"'/' MODULE.bazel
+              changes+=("$name $old to $new")
+            fi
+          done < <(sed -n -E 's/^bazel_dep\(name = "([^"]+)", version = "([^"]+)".*/\1 \2/p' MODULE.bazel)
+          body=$(printf '%s, ' "${changes[@]}")
+          {
+            echo "TITLE=Update Bazel modules"
+            echo "BODY=${body%, }"
+          } >> "$GITHUB_ENV"
+
+      # rules_nodejs can only fetch the Node versions its release lists, so
+      # take the newest of those in the major version already in use. Moving
+      # to a new major is left to a person: it can change behaviour that the
+      # code and its tests rely on.
+      - name: Update the Node version
+        if: matrix.pin == 'node'
+        run: |
+          rules=$(sed -n -E 's/^bazel_dep\(name = "rules_nodejs", version = "([^"]+)".*/\1/p' MODULE.bazel)
+          if [ -z "$rules" ]; then
+            echo "No rules_nodejs in MODULE.bazel, so no Node to update."
+            exit 0
+          fi
+          old=$(sed -n -E 's/.*node_version = "([0-9]+\.[0-9]+\.[0-9]+)".*/\1/p' MODULE.bazel)
+          [ -n "$old" ] || { echo "::error::rules_nodejs but no node_version in MODULE.bazel"; exit 1; }
+          major=${old%%.*}
+          new=$(curl -fsS "https://raw.githubusercontent.com/bazel-contrib/rules_nodejs/v$rules/nodejs/private/node_versions.bzl" |
+            grep -oE "\"$major\.[0-9]+\.[0-9]+-linux_amd64\"" | tr -d '"' | sed 's/-linux_amd64$//' | sort -V | tail -n 1)
+          [[ "$new" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::rules_nodejs $rules lists no Node $major"; exit 1; }
+          # Only ever move forwards.
+          if [ "$(printf '%s\n' "$old" "$new" | sort -V | tail -n 1)" = "$new" ]; then
+            sed -i -E 's/(node_version = ")[0-9.]+"/\1'"$new"'"/' MODULE.bazel
+          fi
+          {
+            echo "TITLE=Update Node to $new"
+            echo "BODY=Node $old to $new, the newest $major.x that rules_nodejs $rules can fetch."
+          } >> "$GITHUB_ENV"
+
+      # A module that is not in a registry, pinned by the commit in its
+      # git_override, moves to the head of the branch it follows.
+      - name: Update the ${{ matrix.module }} commit
+        if: matrix.pin == 'commit'
+        env:
+          MODULE: ${{ matrix.module }}
+          REF: ${{ matrix.ref }}
+        run: |
+          override() { sed -n -E '/module_name = "'"$MODULE"'"/,/^\)/ s/.*'"$1"' = "([^"]+)".*/\1/p' MODULE.bazel; }
+          remote=$(override remote)
+          old=$(override commit)
+          [[ -n "$remote" && "$old" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::no git_override with a remote and a commit for $MODULE in MODULE.bazel"; exit 1; }
+          new=$(git ls-remote "$remote" "refs/heads/$REF" | cut -f1)
+          [[ "$new" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::could not resolve branch $REF of $remote"; exit 1; }
+          sed -i -E '/module_name = "'"$MODULE"'"/,/^\)/ s/commit = "[0-9a-f]{40}"/commit = "'"$new"'"/' MODULE.bazel
+          {
+            echo "TITLE=Update $MODULE to ${new:0:7}"
+            echo "BODY=Changes upstream: ${remote%.git}/compare/$old...$new"
+          } >> "$GITHUB_ENV"
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet; then
+            echo "Already up to date."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: bazel-contrib/setup-bazel@f34d6a05eae3c24acab7fa54587492daeaeffdab # 0.19.2
+        if: steps.diff.outputs.changed == 'true'
+        with:
+          bazelisk-cache: true
+          repository-cache: true
+
+      # Runs on the Bazel in .bazelversion, so a new Bazel writes the
+      # lockfile in its own format.
+      - name: Refresh the lockfile
+        if: steps.diff.outputs.changed == 'true'
+        run: bazel mod deps --lockfile_mode=update
+
+      - name: Open or update the pull request
+        if: steps.diff.outputs.changed == 'true'
+        # The personal token is given to this step alone, not to the steps
+        # above that run newly fetched code.
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
+          BASE: ${{ needs.plan.outputs.base }}
+          AUTO_MERGE: ${{ inputs.auto_merge }}
+        run: |
+          # git authenticates with the token as actions/checkout would have.
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          git config "http.$GITHUB_SERVER_URL/.extraheader" "AUTHORIZATION: basic $auth"
+          # Leave an existing branch alone if it already holds this update on
+          # top of the current default branch, so that a pull request waiting
+          # on CI is not restarted every day.
+          if git fetch --quiet --depth=2 origin "$BRANCH" 2>/dev/null &&
+             [ "$(git rev-parse FETCH_HEAD^)" = "$(git rev-parse HEAD)" ] &&
+             git diff --quiet FETCH_HEAD; then
+            echo "$BRANCH already has this update."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git commit --all -m "$TITLE" -m "$BODY"
+          git push --force origin "$BRANCH"
+          body="$BODY"$'\n\n'"Opened by the [Update pins]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) workflow."
+          if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            gh pr create --head "$BRANCH" --base "$BASE" --title "$TITLE" --body "$body"
+          else
+            gh pr edit "$BRANCH" --title "$TITLE" --body "$body"
+          fi
+          if [ "$AUTO_MERGE" = true ]; then
+            gh pr merge "$BRANCH" --auto --squash
+          fi
