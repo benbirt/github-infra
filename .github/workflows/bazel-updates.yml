@@ -1,9 +1,10 @@
-name: Update pins
+name: Bazel updates
 
-# Advances the pins in a Bazel repository that Dependabot cannot: the Bazel
+# Makes the updates in a Bazel repository that Dependabot cannot: the Bazel
 # version, the bazel_dep versions from the Bazel Central Registry, the Node
-# version and modules followed by git commit. Each gets its own branch
-# (update/<pin>) and pull request.
+# version and modules followed by git commit. Each kind of update gets its own
+# branch (bazel-updates/<kind>, or bazel-updates/<module> for a module
+# followed by commit) and pull request.
 #
 # Dependabot's Bazel support evaluates MODULE.bazel without the files that
 # module extensions read (rules_js reads package.json and
@@ -20,12 +21,13 @@ name: Update pins
 on:
   workflow_call:
     inputs:
-      pins:
+      updates:
         description: >-
-          Which pins to update, separated by spaces: any of bazel, modules
-          and node. node does nothing in a repository without rules_nodejs.
+          Which updates to make, separated by spaces: any of bazel-version,
+          modules, node-version and commits. node-version does nothing in a
+          repository without rules_nodejs; commits needs the commits input.
         type: string
-        default: bazel modules node
+        default: bazel-version modules node-version
       skip_modules:
         description: >-
           bazel_dep names never to bump, separated by spaces. Modules named
@@ -66,27 +68,39 @@ jobs:
       base: ${{ steps.plan.outputs.base }}
       matrix: ${{ steps.plan.outputs.matrix }}
     steps:
-      # One matrix entry per pull request: one per pin in `pins`, and one per
-      # module in `commits`.
+      # One matrix entry per pull request: one per kind in `updates`, with
+      # commits expanding to one per module in the commits input.
       - id: plan
         env:
           GH_TOKEN: ${{ github.token }}
-          PINS: ${{ inputs.pins }}
+          UPDATES: ${{ inputs.updates }}
           COMMITS: ${{ inputs.commits }}
         run: |
           entries=()
-          for pin in $PINS; do
-            case "$pin" in
-              bazel | modules | node) entries+=("$(jq -cn --arg pin "$pin" '{pin: $pin, branch: "update/\($pin)"}')") ;;
-              *) echo "::error::unknown pin '$pin' in pins: use bazel, modules or node"; exit 1 ;;
+          commits=false
+          for kind in $UPDATES; do
+            case "$kind" in
+              bazel-version | modules | node-version) entries+=("$(jq -cn --arg kind "$kind" '{kind: $kind, branch: "bazel-updates/\($kind)"}')") ;;
+              commits) commits=true ;;
+              *) echo "::error::unknown update '$kind' in updates: use bazel-version, modules, node-version or commits"; exit 1 ;;
             esac
           done
+          modules=0
           while read -r module ref extra; do
             [[ -z "$module" || "$module" == \#* ]] && continue
             [[ -n "$ref" && -z "$extra" ]] || { echo "::error::each line of commits must be a module name and a branch"; exit 1; }
-            entries+=("$(jq -cn --arg module "$module" --arg ref "$ref" '{pin: "commit", module: $module, ref: $ref, branch: "update/\($module)"}')")
+            modules=$((modules + 1))
+            if $commits; then
+              entries+=("$(jq -cn --arg module "$module" --arg ref "$ref" '{kind: "commit", module: $module, ref: $ref, branch: "bazel-updates/\($module)"}')")
+            fi
           done <<< "$COMMITS"
-          [ "${#entries[@]}" -gt 0 ] || { echo "::error::nothing to update: pins and commits are both empty"; exit 1; }
+          # Either half alone is a mistake in the caller, not a request to skip.
+          if $commits && [ "$modules" -eq 0 ]; then
+            echo "::error::updates lists commits but the commits input names no modules"; exit 1
+          elif ! $commits && [ "$modules" -gt 0 ]; then
+            echo "::error::the commits input names modules but updates does not list commits"; exit 1
+          fi
+          [ "${#entries[@]}" -gt 0 ] || { echo "::error::nothing to update: updates is empty"; exit 1; }
           echo "matrix=$(printf '%s\n' "${entries[@]}" | jq -cs '{include: .}')" >> "$GITHUB_OUTPUT"
           # The default branch, which every update starts from and targets,
           # whichever branch this run was started on.
@@ -100,7 +114,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     concurrency:
-      group: update-pins-${{ matrix.branch }}
+      group: bazel-updates-${{ matrix.branch }}
     env:
       BRANCH: ${{ matrix.branch }}
     steps:
@@ -116,7 +130,7 @@ jobs:
       # bazelisk reads the nearest one, so nested workspaces carry their own
       # copy, which must agree with the root's.
       - name: Update the Bazel version
-        if: matrix.pin == 'bazel'
+        if: matrix.kind == 'bazel-version'
         env:
           GH_TOKEN: ${{ github.token }}
           BAZELVERSION_FILES: ${{ inputs.bazelversion_files }}
@@ -141,7 +155,7 @@ jobs:
       # Each bazel_dep in the root MODULE.bazel to the newest version in the
       # registry that is not yanked and not a pre-release.
       - name: Update the Bazel modules
-        if: matrix.pin == 'modules'
+        if: matrix.kind == 'modules'
         env:
           SKIP_MODULES: ${{ inputs.skip_modules }}
         run: |
@@ -173,7 +187,7 @@ jobs:
       # to a new major is left to a person: it can change behaviour that the
       # code and its tests rely on.
       - name: Update the Node version
-        if: matrix.pin == 'node'
+        if: matrix.kind == 'node-version'
         run: |
           rules=$(sed -n -E 's/^bazel_dep\(name = "rules_nodejs", version = "([^"]+)".*/\1/p' MODULE.bazel)
           if [ -z "$rules" ]; then
@@ -198,7 +212,7 @@ jobs:
       # A module that is not in a registry, pinned by the commit in its
       # git_override, moves to the head of the branch it follows.
       - name: Update the ${{ matrix.module }} commit
-        if: matrix.pin == 'commit'
+        if: matrix.kind == 'commit'
         env:
           MODULE: ${{ matrix.module }}
           REF: ${{ matrix.ref }}
@@ -264,7 +278,7 @@ jobs:
           git switch -C "$BRANCH"
           git commit --all -m "$TITLE" -m "$BODY"
           git push --force origin "$BRANCH"
-          body="$BODY"$'\n\n'"Opened by the [Update pins]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) workflow."
+          body="$BODY"$'\n\n'"Opened by the [Bazel updates]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) workflow."
           if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
             gh pr create --head "$BRANCH" --base "$BASE" --title "$TITLE" --body "$body"
           else
