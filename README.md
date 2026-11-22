@@ -19,9 +19,11 @@ request:
   in the Bazel Central Registry that is not yanked and not a pre-release.
 - `node-version`: the newest Node in the major version already in use that
   the pinned rules_nodejs can fetch. It does nothing without rules_nodejs.
-- `commits`: each module in the `commits` input, pinned by commit in a
-  `git_override`, moved to the head of the branch it follows, on its own
-  branch `bazel-updates/<module>`.
+- `commits`: each `git_override` with a `commit` and a `remote`, moved to the
+  head of the remote's `main` branch, on its own branch
+  `bazel-updates/<module>`. Every module followed by commit is assumed to
+  follow `main`; a remote without one fails the job. It does nothing without
+  such a `git_override`.
 
 Versions only move forwards. `MODULE.bazel.lock` is refreshed with
 `bazel mod deps --lockfile_mode=update`. A branch that already holds the same
@@ -35,10 +37,9 @@ as integration-test workspaces) keep their own `bazel_dep` versions.
 
 | Input | Default | Meaning |
 | --- | --- | --- |
-| `updates` | `bazel-version modules node-version` | Which of `bazel-version`, `modules`, `node-version` and `commits` to make, separated by spaces. |
-| `skip_modules` | none | `bazel_dep` names never to bump, separated by spaces. Modules named in an override are always skipped. |
+| `updates` | `bazel-version modules node-version commits` | Which of `bazel-version`, `modules`, `node-version` and `commits` to make, separated by spaces. |
+| `skip_modules` | none | Modules never to update, separated by spaces: neither their `bazel_dep` version nor their `git_override` commit. Modules named in an override never get a registry version. |
 | `bazelversion_files` | `.bazelversion` | The `.bazelversion` files to keep identical, separated by spaces. Glob patterns are expanded. |
-| `commits` | none | Modules followed by commit, one per line: the module name and the branch to follow. The remote is the one in the module's `git_override`. Needs `commits` in `updates`. |
 | `auto_merge` | `true` | Whether to turn on auto-merge (squash) once the pull request is opened. |
 
 ### Token
@@ -70,17 +71,14 @@ permissions:
 
 jobs:
   bazel-updates:
-    uses: benbirt/workflows/.github/workflows/bazel-updates.yml@<commit sha> # v1.0.0
+    uses: benbirt/workflows/.github/workflows/bazel-updates.yml@<commit sha> # v1.1.0
     with:
-      updates: bazel-version modules node-version commits
       skip_modules: platforms
-      commits: |
-        rules_tinygo hermetic-embed
     secrets:
       AUTOMATION_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
 ```
 
 Pin the workflow by commit SHA with the release tag as a comment. Dependabot's
 `github-actions` updater then proposes new releases, updating both the SHA and
-the comment. Releases are tagged with full semantic versions (`v1.0.0`) so that
+the comment. Releases are tagged with full semantic versions (`v1.1.0`) so that
 Dependabot can compare them.

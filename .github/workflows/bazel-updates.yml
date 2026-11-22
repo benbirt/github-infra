@@ -25,13 +25,15 @@ on:
         description: >-
           Which updates to make, separated by spaces: any of bazel-version,
           modules, node-version and commits. node-version does nothing in a
-          repository without rules_nodejs; commits needs the commits input.
+          repository without rules_nodejs, and commits in one without a
+          git_override pinned by commit.
         type: string
-        default: bazel-version modules node-version
+        default: bazel-version modules node-version commits
       skip_modules:
         description: >-
-          bazel_dep names never to bump, separated by spaces. Modules named
-          in an override (git_override and the like) are always skipped.
+          Module names never to update, separated by spaces: neither their
+          bazel_dep version nor their git_override commit. Modules named in an
+          override are never given a registry version.
         type: string
         default: ""
       bazelversion_files:
@@ -40,13 +42,6 @@ on:
           Glob patterns are expanded.
         type: string
         default: .bazelversion
-      commits:
-        description: >-
-          Modules followed by git commit, one per line: the module name and
-          the branch to follow, separated by a space. The module needs a
-          git_override in MODULE.bazel, whose remote is used.
-        type: string
-        default: ""
       auto_merge:
         description: Whether to turn on auto-merge (squash) for the pull requests.
         type: boolean
@@ -68,46 +63,67 @@ jobs:
       base: ${{ steps.plan.outputs.base }}
       matrix: ${{ steps.plan.outputs.matrix }}
     steps:
-      # One matrix entry per pull request: one per kind in `updates`, with
-      # commits expanding to one per module in the commits input.
-      - id: plan
+      # The default branch, which every update starts from and targets,
+      # whichever branch this run was started on.
+      - id: base
         env:
           GH_TOKEN: ${{ github.token }}
+        run: echo "base=$(gh api "repos/$GITHUB_REPOSITORY" --jq .default_branch)" >> "$GITHUB_OUTPUT"
+
+      # For the git_override commit pins in MODULE.bazel.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.base.outputs.base }}
+          persist-credentials: false
+
+      # One matrix entry per pull request: one per kind in `updates`, with
+      # commits expanding to one per git_override pinned by commit.
+      - id: plan
+        env:
+          BASE: ${{ steps.base.outputs.base }}
           UPDATES: ${{ inputs.updates }}
-          COMMITS: ${{ inputs.commits }}
+          SKIP_MODULES: ${{ inputs.skip_modules }}
         run: |
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          skip=" $(tr -s '[:space:]' ' ' <<< "$SKIP_MODULES") "
           entries=()
-          commits=false
           for kind in $UPDATES; do
             case "$kind" in
-              bazel-version | modules | node-version) entries+=("$(jq -cn --arg kind "$kind" '{kind: $kind, branch: "bazel-updates/\($kind)"}')") ;;
-              commits) commits=true ;;
+              bazel-version | modules | node-version)
+                entries+=("$(jq -cn --arg kind "$kind" '{kind: $kind, branch: "bazel-updates/\($kind)"}')")
+                ;;
+              commits)
+                # Each git_override( ... ) block, ending at a ")" at the start
+                # of a line, that sets module_name, commit and remote.
+                modules=$(awk '
+                  function value(line) { sub(/^[^"]*"/, "", line); sub(/".*/, "", line); return line }
+                  /^git_override\(/ { block = 1; name = ""; commit = 0; remote = 0; next }
+                  block && /^\)/ { if (name != "" && commit && remote) print name; block = 0; next }
+                  block && /^[[:space:]]*module_name = "/ { name = value($0) }
+                  block && /^[[:space:]]*commit = "/ { commit = 1 }
+                  block && /^[[:space:]]*remote = "/ { remote = 1 }
+                ' MODULE.bazel)
+                found=0
+                for module in $modules; do
+                  [[ "$skip" == *" $module "* ]] && continue
+                  found=1
+                  entries+=("$(jq -cn --arg module "$module" '{kind: "commit", module: $module, branch: "bazel-updates/\($module)"}')")
+                done
+                [ "$found" = 1 ] || echo "::notice::No git_override pinned by commit in MODULE.bazel, so no commits to update."
+                ;;
               *) echo "::error::unknown update '$kind' in updates: use bazel-version, modules, node-version or commits"; exit 1 ;;
             esac
           done
-          modules=0
-          while read -r module ref extra; do
-            [[ -z "$module" || "$module" == \#* ]] && continue
-            [[ -n "$ref" && -z "$extra" ]] || { echo "::error::each line of commits must be a module name and a branch"; exit 1; }
-            modules=$((modules + 1))
-            if $commits; then
-              entries+=("$(jq -cn --arg module "$module" --arg ref "$ref" '{kind: "commit", module: $module, ref: $ref, branch: "bazel-updates/\($module)"}')")
-            fi
-          done <<< "$COMMITS"
-          # Either half alone is a mistake in the caller, not a request to skip.
-          if $commits && [ "$modules" -eq 0 ]; then
-            echo "::error::updates lists commits but the commits input names no modules"; exit 1
-          elif ! $commits && [ "$modules" -gt 0 ]; then
-            echo "::error::the commits input names modules but updates does not list commits"; exit 1
+          if [ "${#entries[@]}" -gt 0 ]; then
+            echo "matrix=$(printf '%s\n' "${entries[@]}" | jq -cs '{include: .}')" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Nothing to update."
           fi
-          [ "${#entries[@]}" -gt 0 ] || { echo "::error::nothing to update: updates is empty"; exit 1; }
-          echo "matrix=$(printf '%s\n' "${entries[@]}" | jq -cs '{include: .}')" >> "$GITHUB_OUTPUT"
-          # The default branch, which every update starts from and targets,
-          # whichever branch this run was started on.
-          echo "base=$(gh api "repos/$GITHUB_REPOSITORY" --jq .default_branch)" >> "$GITHUB_OUTPUT"
 
   update:
     needs: plan
+    # A matrix cannot be empty.
+    if: needs.plan.outputs.matrix != ''
     name: ${{ matrix.branch }}
     runs-on: ubuntu-latest
     strategy:
@@ -210,19 +226,24 @@ jobs:
           } >> "$GITHUB_ENV"
 
       # A module that is not in a registry, pinned by the commit in its
-      # git_override, moves to the head of the branch it follows.
+      # git_override, moves to the head of its remote's main branch: every
+      # module followed by commit is assumed to follow main.
       - name: Update the ${{ matrix.module }} commit
         if: matrix.kind == 'commit'
         env:
           MODULE: ${{ matrix.module }}
-          REF: ${{ matrix.ref }}
         run: |
           override() { sed -n -E '/module_name = "'"$MODULE"'"/,/^\)/ s/.*'"$1"' = "([^"]+)".*/\1/p' MODULE.bazel; }
           remote=$(override remote)
           old=$(override commit)
           [[ -n "$remote" && "$old" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::no git_override with a remote and a commit for $MODULE in MODULE.bazel"; exit 1; }
-          new=$(git ls-remote "$remote" "refs/heads/$REF" | cut -f1)
-          [[ "$new" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::could not resolve branch $REF of $remote"; exit 1; }
+          # --exit-code exits 2 when the remote has no such branch.
+          status=0
+          heads=$(git ls-remote --exit-code "$remote" refs/heads/main) || status=$?
+          [ "$status" != 2 ] || { echo "::error::$remote, the remote of $MODULE, has no main branch"; exit 1; }
+          [ "$status" = 0 ] || { echo "::error::could not read the branches of $remote"; exit 1; }
+          new=$(cut -f1 <<< "$heads")
+          [[ "$new" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::unexpected head '$new' for main of $remote"; exit 1; }
           sed -i -E '/module_name = "'"$MODULE"'"/,/^\)/ s/commit = "[0-9a-f]{40}"/commit = "'"$new"'"/' MODULE.bazel
           {
             echo "TITLE=Update $MODULE to ${new:0:7}"
