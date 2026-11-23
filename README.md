@@ -1,4 +1,4 @@
-# workflows
+# github-infra
 
 Reusable GitHub Actions workflows shared across benbirt's repositories.
 
@@ -71,7 +71,7 @@ permissions:
 
 jobs:
   bazel-updates:
-    uses: benbirt/workflows/.github/workflows/bazel-updates.yml@<commit sha> # v1.1.0
+    uses: benbirt/github-infra/.github/workflows/bazel-updates.yml@<commit sha> # v1.1.0
     with:
       skip_modules: platforms
     secrets:
