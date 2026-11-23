@@ -1,0 +1,16 @@
+module(
+    name = "github_infra",
+    version = "0.0.0",
+)
+
+# Compiles repos.jsonnet, the list of repositories, to JSON.
+bazel_dep(name = "rules_jsonnet", version = "0.7.2")
+
+# rules_jsonnet 0.7.2 asks for versions of jsonnet_go and rules_go that do not
+# load under Bazel 9, and the newer jsonnet_go's own dependencies need a newer
+# Go than the module graph would pick.
+bazel_dep(name = "jsonnet_go", version = "0.22.0")
+bazel_dep(name = "rules_go", version = "0.65.0")
+
+go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
+go_sdk.download(version = "1.27.4")

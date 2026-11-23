@@ -5,14 +5,15 @@ and the reusable GitHub Actions workflows they call.
 
 ## Repositories
 
-[`repos.json`](repos.json) lists every repository in the account that is not
-archived. A repository under `managed` follows the shared scheme, and its entry
-holds everything about it that differs from the others: what builds it, the
-checks its pull requests need, its Pages site and the OpenTofu it applies. One
-under `unmanaged` is left alone, and its entry says why.
+[`repos.jsonnet`](repos.jsonnet) lists every repository in the account that is
+not archived. A repository under `managed` follows the shared scheme, and its
+entry holds everything about it that differs from the others: what builds it,
+the checks its pull requests need, its Pages site and the OpenTofu it applies.
+One under `unmanaged` is left alone, and its entry says why.
 
+`bazel build //:repos` compiles the list to `bazel-bin/repos.json`.
 [`repos.schema.json`](repos.schema.json) describes the fields and their
-defaults, and CI checks the list against it.
+defaults, and CI checks the compiled list against it.
 
 ## Bazel updates
 
