@@ -5,7 +5,7 @@ and the reusable GitHub Actions workflows they call.
 
 ## Repositories
 
-[`repos.yaml`](repos.yaml) lists every repository in the account that is not
+[`repos.json`](repos.json) lists every repository in the account that is not
 archived. A repository under `managed` follows the shared scheme, and its entry
 holds everything about it that differs from the others: what builds it, the
 checks its pull requests need, its Pages site and the OpenTofu it applies. One

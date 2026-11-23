@@ -5,6 +5,10 @@
   "additionalProperties": false,
   "required": ["managed", "unmanaged"],
   "properties": {
+    "$schema": {
+      "description": "The path of this schema, for editors.",
+      "const": "repos.schema.json"
+    },
     "managed": {
       "description": "The repositories that follow the shared scheme, by name.",
       "type": "object",
@@ -77,8 +81,13 @@
           "description": "The inputs to the Bazel updates workflow that differ from its defaults.",
           "type": "object",
           "additionalProperties": false,
-          "minProperties": 1,
+          "required": ["why"],
           "properties": {
+            "why": {
+              "description": "The reason for each input given here.",
+              "type": "string",
+              "minLength": 1
+            },
             "skip_modules": {
               "description": "Modules never to update.",
               "type": "array",
