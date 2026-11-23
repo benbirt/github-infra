@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "The benbirt repositories",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["managed", "unmanaged"],
+  "properties": {
+    "managed": {
+      "description": "The repositories that follow the shared scheme, by name.",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/repository" }
+    },
+    "unmanaged": {
+      "description": "The repositories that are left alone, by name, each with the reason.",
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "label": {
+      "description": "A Bazel label that names its target, as in //site:public.",
+      "type": "string",
+      "pattern": "^//[^:]*:[^:]+$"
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["build", "required_checks", "dependabot"],
+      "properties": {
+        "visibility": {
+          "enum": ["public", "private"],
+          "default": "public"
+        },
+        "build": {
+          "description": "What builds and tests the repository. Only a bazel repository gets the Bazel updates.",
+          "enum": ["bazel", "nix", "none"]
+        },
+        "required_checks": {
+          "description": "The status checks a pull request needs before it merges into the default branch, by job name.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "dependabot": {
+          "description": "The package ecosystems in the repository's .github/dependabot.yml, which is written by hand.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "pages": {
+          "description": "The GitHub Pages site deployed from the default branch. Omitted when there is none.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["target", "domain"],
+          "properties": {
+            "target": {
+              "description": "The target whose output directory is the site.",
+              "$ref": "#/$defs/label"
+            },
+            "domain": {
+              "description": "The site's custom domain.",
+              "type": "string",
+              "format": "hostname"
+            }
+          }
+        },
+        "tofu": {
+          "description": "The OpenTofu root modules applied from the default branch, each as its tf_root target.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/label" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "bazel_updates": {
+          "description": "The inputs to the Bazel updates workflow that differ from its defaults.",
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "skip_modules": {
+              "description": "Modules never to update.",
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "bazelversion_files": {
+              "description": "The .bazelversion files to update together; glob patterns are expanded.",
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "auto_merge": {
+              "description": "Whether the pull requests merge themselves once the required checks pass.",
+              "type": "boolean",
+              "default": true
+            }
+          }
+        }
+      },
+      "if": {
+        "anyOf": [
+          { "required": ["pages"] },
+          { "required": ["tofu"] },
+          { "required": ["bazel_updates"] }
+        ]
+      },
+      "then": {
+        "properties": { "build": { "const": "bazel" } }
+      }
+    }
+  }
+}

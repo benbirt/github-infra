@@ -1,6 +1,18 @@
 # github-infra
 
-Reusable GitHub Actions workflows shared across benbirt's repositories.
+The shared configuration of benbirt's repositories: the list of repositories
+and the reusable GitHub Actions workflows they call.
+
+## Repositories
+
+[`repos.yaml`](repos.yaml) lists every repository in the account that is not
+archived. A repository under `managed` follows the shared scheme, and its entry
+holds everything about it that differs from the others: what builds it, the
+checks its pull requests need, its Pages site and the OpenTofu it applies. One
+under `unmanaged` is left alone, and its entry says why.
+
+[`repos.schema.json`](repos.schema.json) describes the fields and their
+defaults, and CI checks the list against it.
 
 ## Bazel updates
 
