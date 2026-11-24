@@ -48,12 +48,12 @@ as integration-test workspaces) keep their own `bazel_dep` versions.
 
 ### Inputs
 
-| Input | Default | Meaning |
-| --- | --- | --- |
-| `updates` | `bazel-version modules node-version commits` | Which of `bazel-version`, `modules`, `node-version` and `commits` to make, separated by spaces. |
-| `skip_modules` | none | Modules never to update, separated by spaces: neither their `bazel_dep` version nor their `git_override` commit. Modules named in an override never get a registry version. |
-| `bazelversion_files` | `.bazelversion` | The `.bazelversion` files to keep identical, separated by spaces. Glob patterns are expanded. |
-| `auto_merge` | `true` | Whether to turn on auto-merge (squash) once the pull request is opened. |
+| Input                | Default                                      | Meaning                                                                                                                                                                     |
+| -------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `updates`            | `bazel-version modules node-version commits` | Which of `bazel-version`, `modules`, `node-version` and `commits` to make, separated by spaces.                                                                             |
+| `skip_modules`       | none                                         | Modules never to update, separated by spaces: neither their `bazel_dep` version nor their `git_override` commit. Modules named in an override never get a registry version. |
+| `bazelversion_files` | `.bazelversion`                              | The `.bazelversion` files to keep identical, separated by spaces. Glob patterns are expanded.                                                                               |
+| `auto_merge`         | `true`                                       | Whether to turn on auto-merge (squash) once the pull request is opened.                                                                                                     |
 
 ### Token
 

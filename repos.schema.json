@@ -102,11 +102,7 @@
         }
       },
       "if": {
-        "anyOf": [
-          { "required": ["pages"] },
-          { "required": ["tofu"] },
-          { "required": ["bazel_updates"] }
-        ]
+        "anyOf": [{ "required": ["pages"] }, { "required": ["tofu"] }, { "required": ["bazel_updates"] }]
       },
       "then": {
         "properties": { "build": { "const": "bazel" } }

@@ -1,0 +1,6 @@
+load("@bazel_style//:defs.bzl", "style")
+
+# bazel run //tools:format formats every git-tracked file, //tools:format.check
+# only checks, and //tools:lint lints the Starlark. Jsonnet is formatted by the
+# jsonnetfmt of the compiler that builds //:repos.
+style(jsonnet = "@jsonnet_go//cmd/jsonnetfmt")

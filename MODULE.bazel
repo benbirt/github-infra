@@ -14,3 +14,12 @@ bazel_dep(name = "rules_go", version = "0.65.0")
 
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(version = "1.27.4")
+
+# Formatting and Starlark lint from benbirt/bazel-style: bazel run
+# //tools:format, //tools:format.check and //tools:lint.
+bazel_dep(name = "bazel_style", version = "0.0.0", dev_dependency = True)
+git_override(
+    module_name = "bazel_style",
+    commit = "66fd19756990004798c5d1ab56f299151b0a6a72",
+    remote = "https://github.com/benbirt/bazel-style.git",
+)

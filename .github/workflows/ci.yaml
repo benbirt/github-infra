@@ -2,7 +2,8 @@ name: CI
 
 # Lints the workflows with actionlint, which also runs shellcheck on every
 # `run:` script (shellcheck is installed on GitHub's Ubuntu runners), and
-# checks the list of repositories against its schema.
+# checks the formatting, lints the Starlark and checks the list of repositories
+# against its schema.
 
 on:
   push:
@@ -42,6 +43,13 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
           repository-cache: true
+      # Every git-tracked file, with the formatters and settings of
+      # benbirt/bazel-style.
+      - name: Check formatting
+        run: bazel run --lockfile_mode=error //tools:format.check
+      # Fails on any buildifier warning in a Starlark file.
+      - name: Lint Starlark
+        run: bazel run --lockfile_mode=error //tools:lint
       - name: Compile the list of repositories
         run: bazel build --lockfile_mode=error //:repos
       - name: Check the list of repositories
