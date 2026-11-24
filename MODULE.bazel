@@ -3,19 +3,19 @@ module(
     version = "0.0.0",
 )
 
-# Compiles repos.jsonnet, the list of repositories, to JSON.
+# Compiles repos.jsonnet to JSON.
 bazel_dep(name = "rules_jsonnet", version = "0.7.2")
 
-# The C++ Jsonnet: the compiler, and the jsonnetfmt that //tools:format runs.
-# rules_jsonnet's default, the Go one, needs newer rules_go, jsonnet_go and Go
-# pins than rules_jsonnet asks for before it loads under Bazel 9.
+# Use the C++ Jsonnet compiler instead of rules_jsonnet's default Go compiler.
+# Under Bazel 9, the Go compiler does not load without newer rules_go,
+# jsonnet_go and Go SDK pins than rules_jsonnet declares. This dependency also
+# supplies jsonnetfmt for //tools:format.
 bazel_dep(name = "jsonnet", version = "0.22.0")
 
 jsonnet = use_extension("@rules_jsonnet//jsonnet:extensions.bzl", "jsonnet")
 jsonnet.compiler(name = "cpp")
 
-# Formatting and Starlark lint from benbirt/bazel-style: bazel run
-# //tools:format, //tools:format.check and //tools:lint.
+# Shared formatting and Starlark linting targets; see tools/BUILD.bazel.
 bazel_dep(name = "bazel_style", version = "0.0.0", dev_dependency = True)
 git_override(
     module_name = "bazel_style",

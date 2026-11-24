@@ -1,19 +1,18 @@
 # github-infra
 
-The shared configuration of benbirt's repositories: the list of repositories
-and the reusable GitHub Actions workflows they call.
+Shared configuration for the benbirt GitHub account: the repository list and
+reusable GitHub Actions workflows.
 
 ## Repositories
 
-[`repos.jsonnet`](repos.jsonnet) lists every repository in the account that is
-not archived. A repository under `managed` follows the shared scheme, and its
-entry holds everything about it that differs from the others: what builds it,
-the checks its pull requests need, its Pages site and the OpenTofu it applies.
-One under `unmanaged` is left alone, and its entry says why.
+[`repos.jsonnet`](repos.jsonnet) lists every unarchived repository in the
+account. Entries under `managed` follow a shared scheme and record what varies
+between repositories. Entries under `unmanaged` are left alone and state why.
 
-`bazel build //:repos` compiles the list to `bazel-bin/repos.json`.
-[`repos.schema.json`](repos.schema.json) describes the fields and their
-defaults, and CI checks the compiled list against it.
+Run `bazel build //:repos` to compile the list to `bazel-bin/repos.json`. CI
+runs this build and validates the output against
+[`repos.schema.json`](repos.schema.json), which documents the fields and their
+defaults.
 
 ## Bazel updates
 

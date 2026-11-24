@@ -1,24 +1,24 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "The benbirt repositories",
+  "title": "benbirt GitHub repositories",
   "type": "object",
   "additionalProperties": false,
   "required": ["managed", "unmanaged"],
   "properties": {
     "managed": {
-      "description": "The repositories that follow the shared scheme, by name.",
+      "description": "Repositories that follow the shared scheme, keyed by name.",
       "type": "object",
       "additionalProperties": { "$ref": "#/$defs/repository" }
     },
     "unmanaged": {
-      "description": "The repositories that are left alone, by name, each with the reason.",
+      "description": "Repositories left alone, keyed by name, mapped to the reason.",
       "type": "object",
       "additionalProperties": { "type": "string", "minLength": 1 }
     }
   },
   "$defs": {
     "label": {
-      "description": "A Bazel label that names its target, as in //site:public.",
+      "description": "Bazel label in the repository with an explicit target name, e.g. //site:public.",
       "type": "string",
       "pattern": "^//[^:]*:[^:]+$"
     },
@@ -32,73 +32,73 @@
           "default": "public"
         },
         "build": {
-          "description": "What builds and tests the repository. Only a bazel repository gets the Bazel updates.",
+          "description": "Build and test system. Only bazel repositories receive Bazel updates or may set pages, tofu or bazel_updates.",
           "enum": ["bazel", "nix", "none"]
         },
         "required_checks": {
-          "description": "The status checks a pull request needs before it merges into the default branch, by job name.",
+          "description": "Job names of status checks required before merging a pull request into the default branch. May be empty.",
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
           "uniqueItems": true
         },
         "direct_pushes": {
-          "description": "Whether commits may be pushed to the default branch without a pull request, for a repository whose own workflows commit there.",
+          "description": "Whether commits may be pushed directly to the default branch without a pull request, for repositories whose own workflows commit there.",
           "type": "boolean",
           "default": false
         },
         "dependabot": {
-          "description": "The package ecosystems in the repository's .github/dependabot.yml, which is written by hand.",
+          "description": "Package ecosystems configured in the repository's hand-written .github/dependabot.yml.",
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
           "minItems": 1,
           "uniqueItems": true
         },
         "pages": {
-          "description": "The GitHub Pages site deployed from the default branch. Omitted when there is none.",
+          "description": "GitHub Pages site deployed from the default branch. Omit when there is none.",
           "type": "object",
           "additionalProperties": false,
           "required": ["target", "domain"],
           "properties": {
             "target": {
-              "description": "The target whose output directory is the site.",
+              "description": "Bazel target whose output directory is the site.",
               "$ref": "#/$defs/label"
             },
             "domain": {
-              "description": "The site's custom domain.",
+              "description": "Custom domain for the site.",
               "type": "string",
               "format": "hostname"
             }
           }
         },
         "tofu": {
-          "description": "The OpenTofu root modules applied from the default branch, each as its tf_root target.",
+          "description": "OpenTofu root modules applied from the default branch, as tf_root targets.",
           "type": "array",
           "items": { "$ref": "#/$defs/label" },
           "minItems": 1,
           "uniqueItems": true
         },
         "bazel_updates": {
-          "description": "The inputs to the Bazel updates workflow that differ from its defaults.",
+          "description": "Inputs to the Bazel updates workflow that differ from its defaults.",
           "type": "object",
           "additionalProperties": false,
           "minProperties": 1,
           "properties": {
             "skip_modules": {
-              "description": "Modules never to update.",
+              "description": "Bazel module names to exclude from bazel_dep and git_override updates.",
               "type": "array",
               "items": { "type": "string", "minLength": 1 },
               "minItems": 1,
               "uniqueItems": true
             },
             "bazelversion_files": {
-              "description": "The .bazelversion files to update together; glob patterns are expanded.",
+              "description": "Paths to .bazelversion files to update together. Glob patterns are expanded.",
               "type": "array",
               "items": { "type": "string", "minLength": 1 },
               "minItems": 1,
               "uniqueItems": true
             },
             "auto_merge": {
-              "description": "Whether the pull requests merge themselves once the required checks pass.",
+              "description": "Whether to enable squash auto-merge on opened pull requests.",
               "type": "boolean",
               "default": true
             }

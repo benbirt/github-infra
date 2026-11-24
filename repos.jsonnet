@@ -1,12 +1,13 @@
-// Every repository in the benbirt account that is not archived, and how each
-// one differs from the rest. `bazel build //:repos` compiles this to
-// bazel-bin/repos.json, which CI checks against repos.schema.json; the schema
-// describes the fields and gives their defaults.
+// Unarchived repositories in the benbirt GitHub account.
 //
-// A repository under `managed` follows the shared scheme. One under
-// `unmanaged` is left alone, with the reason.
+// `managed` repositories follow a shared scheme and record what varies between
+// them. `unmanaged` repositories are left alone, each with a reason.
+//
+// `bazel build //:repos` compiles this file to bazel-bin/repos.json. See
+// repos.schema.json for the field definitions and defaults; CI validates the
+// compiled JSON against it.
 
-local fork = 'Fork, kept for pull requests to the upstream repository.';
+local fork = 'Fork kept for upstream pull requests.';
 
 {
   managed: {
@@ -41,10 +42,10 @@ local fork = 'Fork, kept for pull requests to the upstream repository.';
 
     'git-witness': {
       build: 'none',
-      // Its one workflow answers issues; nothing runs on a pull request.
+      // Its only workflow responds to issues, so nothing runs on pull requests.
       required_checks: [],
       dependabot: ['github-actions'],
-      // The cosign workflow commits each checkpoint straight to main.
+      // The cosign workflow commits each checkpoint directly to main.
       direct_pushes: true,
     },
 
@@ -65,17 +66,17 @@ local fork = 'Fork, kept for pull requests to the upstream repository.';
       ],
       dependabot: ['gomod', 'opentofu', 'github-actions'],
       bazel_updates: {
-        // The non-dev deps are floors for every downstream module: under
-        // Bazel's minimal version selection, bumping them here would force
-        // the same versions on users.
+        // Non-dev dependencies set version floors for downstream modules: under
+        // Bazel's minimal version selection, bumping them forces those versions
+        // on users.
         skip_modules: ['platforms', 'rules_go', 'gazelle'],
-        // CI requires the nested workspaces' copies to match the root file.
+        // CI requires nested workspaces' .bazelversion files to match the root.
         bazelversion_files: [
           '.bazelversion',
           'e2e/*/.bazelversion',
           'tests/integration/*/.bazelversion',
         ],
-        // A library: the pull requests wait for a person to merge them.
+        // Update pull requests are merged manually because this is a library.
         auto_merge: false,
       },
     },
@@ -100,7 +101,7 @@ local fork = 'Fork, kept for pull requests to the upstream repository.';
     C2SP: fork,
     'bazel-central-registry': fork,
     cv: 'No ruleset or shared automation; last pushed in May 2026.',
-    rules_tinygo: "Fork; its workflows are the upstream repository's.",
+    rules_tinygo: 'Fork; uses upstream workflows.',
     tessera: fork,
     'transparency-dev-formats': fork,
   },

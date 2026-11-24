@@ -1,8 +1,8 @@
 name: Self updates
 
-# Runs the Bazel updates workflow on this repository: Bazel, the Bazel modules
-# and the bazel_style commit, each in its own pull request. AUTOMATION_TOKEN
-# opens the pull requests so that CI runs.
+# Runs this repository's own bazel-updates.yml nightly on this repository with
+# the default inputs. AUTOMATION_TOKEN opens the pull requests so that CI runs
+# on them.
 
 on:
   schedule:

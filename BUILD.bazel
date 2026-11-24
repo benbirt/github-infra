@@ -1,6 +1,5 @@
 load("@rules_jsonnet//jsonnet:jsonnet.bzl", "jsonnet_to_json")
 
-# The list of repositories as JSON, at bazel-bin/repos.json.
 jsonnet_to_json(
     name = "repos",
     src = "repos.jsonnet",

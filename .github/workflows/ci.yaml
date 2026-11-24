@@ -1,9 +1,9 @@
 name: CI
 
-# Lints the workflows with actionlint, which also runs shellcheck on every
-# `run:` script (shellcheck is installed on GitHub's Ubuntu runners), and
-# checks the formatting, lints the Starlark and checks the list of repositories
-# against its schema.
+# Lints workflows with actionlint, which also runs shellcheck on every `run:`
+# script using the shellcheck preinstalled on GitHub's Ubuntu runners. Checks
+# formatting, lints Starlark files and validates the compiled repository list
+# against repos.schema.json.
 
 on:
   push:
@@ -22,7 +22,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     env:
-      # Moved by hand: Dependabot does not see this download.
+      # Updated manually: Dependabot sees neither the actionlint download nor
+      # the pipx run pin.
       ACTIONLINT_VERSION: 1.7.12
       ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
       CHECK_JSONSCHEMA_VERSION: 0.39.0
@@ -43,7 +44,7 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
           repository-cache: true
-      # Every git-tracked file, with the formatters and settings of
+      # Checks all git-tracked files using the formatters and settings from
       # benbirt/bazel-style.
       - name: Check formatting
         run: bazel run --lockfile_mode=error //tools:format.check
