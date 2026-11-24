@@ -39,8 +39,12 @@
           "description": "The status checks a pull request needs before it merges into the default branch, by job name.",
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
-          "minItems": 1,
           "uniqueItems": true
+        },
+        "direct_pushes": {
+          "description": "Whether commits may be pushed to the default branch without a pull request, for a repository whose own workflows commit there.",
+          "type": "boolean",
+          "default": false
         },
         "dependabot": {
           "description": "The package ecosystems in the repository's .github/dependabot.yml, which is written by hand.",

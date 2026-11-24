@@ -39,6 +39,15 @@ local fork = 'Fork, kept for pull requests to the upstream repository.';
       pages: { target: '//:public', domain: 'flip7.benbirt.io' },
     },
 
+    'git-witness': {
+      build: 'none',
+      // Its one workflow answers issues; nothing runs on a pull request.
+      required_checks: [],
+      dependabot: ['github-actions'],
+      // The cosign workflow commits each checkpoint straight to main.
+      direct_pushes: true,
+    },
+
     'github-infra': {
       build: 'bazel',
       required_checks: ['lint'],
@@ -91,7 +100,6 @@ local fork = 'Fork, kept for pull requests to the upstream repository.';
     C2SP: fork,
     'bazel-central-registry': fork,
     cv: 'No ruleset or shared automation; last pushed in May 2026.',
-    'git-witness': 'No ruleset or shared automation.',
     rules_tinygo: "Fork; its workflows are the upstream repository's.",
     tessera: fork,
     'transparency-dev-formats': fork,
