@@ -8,8 +8,7 @@ bazel_dep(name = "rules_jsonnet", version = "0.7.2")
 
 # Use the C++ Jsonnet compiler instead of rules_jsonnet's default Go compiler.
 # Under Bazel 9, the Go compiler does not load without newer rules_go,
-# jsonnet_go and Go SDK pins than rules_jsonnet declares. This dependency also
-# supplies jsonnetfmt for //tools:format.
+# jsonnet_go and Go SDK pins than rules_jsonnet declares.
 bazel_dep(name = "jsonnet", version = "0.22.0")
 
 jsonnet = use_extension("@rules_jsonnet//jsonnet:extensions.bzl", "jsonnet")
@@ -19,6 +18,6 @@ jsonnet.compiler(name = "cpp")
 bazel_dep(name = "bazel_style", version = "0.0.0", dev_dependency = True)
 git_override(
     module_name = "bazel_style",
-    commit = "66fd19756990004798c5d1ab56f299151b0a6a72",
+    commit = "bc60126ccfc3e45b9ef984771b8a34457aea0dbd",
     remote = "https://github.com/benbirt/bazel-style.git",
 )

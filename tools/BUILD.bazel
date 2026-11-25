@@ -4,6 +4,4 @@ load("@bazel_style//:defs.bzl", "style")
 #   //tools:format       - formats all git-tracked files
 #   //tools:format.check - fails if any file would change
 #   //tools:lint         - lints Starlark files
-#
-# Jsonnet files are formatted with the C++ jsonnetfmt.
-style(jsonnet = "@jsonnet//cmd:jsonnetfmt")
+style()
