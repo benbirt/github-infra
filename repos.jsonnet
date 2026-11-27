@@ -1,11 +1,11 @@
-// Unarchived repositories in the benbirt GitHub account.
+// Known unarchived repositories in the benbirt GitHub account.
 //
 // `managed` repositories follow a shared scheme and record what varies between
 // them. `unmanaged` repositories are left alone, each with a reason.
 //
 // `bazel build //:repos` compiles this file to bazel-bin/repos.json. See
-// repos.schema.json for the field definitions and defaults; CI validates the
-// compiled JSON against it.
+// schema/repos.schema.json for the field definitions and defaults;
+// `bazel test //...` checks the compiled JSON against it.
 
 local fork = 'Fork kept for upstream pull requests.';
 
@@ -52,7 +52,7 @@ local fork = 'Fork kept for upstream pull requests.';
     'github-infra': {
       build: 'bazel',
       required_checks: ['lint'],
-      dependabot: ['github-actions'],
+      dependabot: ['github-actions', 'pip'],
     },
 
     rules_tofu: {

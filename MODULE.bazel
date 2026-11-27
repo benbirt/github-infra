@@ -21,3 +21,21 @@ git_override(
     commit = "bc60126ccfc3e45b9ef984771b8a34457aea0dbd",
     remote = "https://github.com/benbirt/bazel-style.git",
 )
+
+# Runs check-jsonschema and locks its requirements with uv; see
+# schema/BUILD.bazel.
+bazel_dep(name = "rules_python", version = "2.5.1", dev_dependency = True)
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip", dev_dependency = True)
+pip.parse(
+    hub_name = "github_infra_pip",
+    python_version = "3.14",
+    requirements_lock = "//schema:requirements.txt",
+)
+use_repo(pip, "github_infra_pip")
+
+uv = use_extension("@rules_python//python/uv:uv.bzl", "uv", dev_dependency = True)
+uv.configure()
+
+# Needed by rules_python's uv lock rule, which selects on @platforms.
+bazel_dep(name = "platforms", version = "1.1.0", dev_dependency = True)

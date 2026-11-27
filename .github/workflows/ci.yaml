@@ -2,8 +2,7 @@ name: CI
 
 # Lints workflows with actionlint, which also runs shellcheck on every `run:`
 # script using the shellcheck preinstalled on GitHub's Ubuntu runners. Checks
-# formatting, lints Starlark files and validates the compiled repository list
-# against repos.schema.json.
+# formatting, lints Starlark files and runs the Bazel tests.
 
 on:
   push:
@@ -22,11 +21,9 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     env:
-      # Updated manually: Dependabot sees neither the actionlint download nor
-      # the pipx run pin.
+      # Moved by hand: Dependabot does not see this download.
       ACTIONLINT_VERSION: 1.7.12
       ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
-      CHECK_JSONSCHEMA_VERSION: 0.39.0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -51,7 +48,5 @@ jobs:
       # Fails on any buildifier warning in a Starlark file.
       - name: Lint Starlark
         run: bazel run --lockfile_mode=error //tools:lint
-      - name: Compile the list of repositories
-        run: bazel build --lockfile_mode=error //:repos
-      - name: Check the list of repositories
-        run: pipx run "check-jsonschema==${CHECK_JSONSCHEMA_VERSION}" --schemafile repos.schema.json bazel-bin/repos.json
+      - name: Test
+        run: bazel test --lockfile_mode=error //...

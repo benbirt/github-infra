@@ -5,14 +5,14 @@ reusable GitHub Actions workflows.
 
 ## Repositories
 
-[`repos.jsonnet`](repos.jsonnet) lists every unarchived repository in the
+[`repos.jsonnet`](repos.jsonnet) lists every known unarchived repository in the
 account. Entries under `managed` follow a shared scheme and record what varies
 between repositories. Entries under `unmanaged` are left alone and state why.
 
-Run `bazel build //:repos` to compile the list to `bazel-bin/repos.json`. CI
-runs this build and validates the output against
-[`repos.schema.json`](repos.schema.json), which documents the fields and their
-defaults.
+Run `bazel build //:repos` to compile the list to `bazel-bin/repos.json`. Run
+`bazel test //...` to check the compiled list against
+[`schema/repos.schema.json`](schema/repos.schema.json), which documents the
+fields and their defaults.
 
 ## Bazel updates
 
