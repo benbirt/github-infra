@@ -23,23 +23,17 @@ on:
     inputs:
       updates:
         description: >-
-          Which updates to make, separated by spaces: any of bazel-version,
-          modules, node-version and commits. node-version does nothing in a
-          repository without rules_nodejs, and commits in one without a
-          git_override pinned by commit.
+          Which updates to make, separated by spaces: any of bazel-version, modules, node-version and commits. node-version does nothing in a repository without rules_nodejs, and commits in one without a git_override pinned by commit.
         type: string
         default: bazel-version modules node-version commits
       skip_modules:
         description: >-
-          Module names never to update, separated by spaces: neither their
-          bazel_dep version nor their git_override commit. Modules named in an
-          override are never given a registry version.
+          Module names never to update, separated by spaces: neither their bazel_dep version nor their git_override commit. Modules named in an override are never given a registry version.
         type: string
         default: ""
       bazelversion_files:
         description: >-
-          The .bazelversion files to update together, separated by spaces.
-          Glob patterns are expanded.
+          The .bazelversion files to update together, separated by spaces. Glob patterns are expanded.
         type: string
         default: .bazelversion
       auto_merge:
@@ -49,8 +43,7 @@ on:
     secrets:
       AUTOMATION_TOKEN:
         description: >-
-          A fine-grained personal access token with read and write access to
-          contents and pull requests in the calling repository.
+          A fine-grained personal access token with read and write access to contents and pull requests in the calling repository.
         required: true
 
 permissions:

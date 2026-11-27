@@ -1,0 +1,7 @@
+load("@bazel_style//:defs.bzl", "style")
+
+# Creates three `bazel run` targets:
+#   //tools:format       - formats all git-tracked files
+#   //tools:format.check - fails if any file would change
+#   //tools:lint         - lints Starlark files
+style()

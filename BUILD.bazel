@@ -1,0 +1,8 @@
+load("@rules_jsonnet//jsonnet:jsonnet.bzl", "jsonnet_to_json")
+
+jsonnet_to_json(
+    name = "repos",
+    src = "repos.jsonnet",
+    outs = ["repos.json"],
+    visibility = ["//visibility:public"],
+)

@@ -1,6 +1,18 @@
 # github-infra
 
-Reusable GitHub Actions workflows shared across benbirt's repositories.
+Shared configuration for the benbirt GitHub account: the repository list and
+reusable GitHub Actions workflows.
+
+## Repositories
+
+[`repos.jsonnet`](repos.jsonnet) lists every known unarchived repository in the
+account. Entries under `managed` follow a shared scheme and record what varies
+between repositories. Entries under `unmanaged` are left alone and state why.
+
+Run `bazel build //:repos` to compile the list to `bazel-bin/repos.json`. Run
+`bazel test //...` to check the compiled list against
+[`schema/repos.schema.json`](schema/repos.schema.json), which documents the
+fields and their defaults.
 
 ## Bazel updates
 
@@ -35,12 +47,12 @@ as integration-test workspaces) keep their own `bazel_dep` versions.
 
 ### Inputs
 
-| Input | Default | Meaning |
-| --- | --- | --- |
-| `updates` | `bazel-version modules node-version commits` | Which of `bazel-version`, `modules`, `node-version` and `commits` to make, separated by spaces. |
-| `skip_modules` | none | Modules never to update, separated by spaces: neither their `bazel_dep` version nor their `git_override` commit. Modules named in an override never get a registry version. |
-| `bazelversion_files` | `.bazelversion` | The `.bazelversion` files to keep identical, separated by spaces. Glob patterns are expanded. |
-| `auto_merge` | `true` | Whether to turn on auto-merge (squash) once the pull request is opened. |
+| Input                | Default                                      | Meaning                                                                                                                                                                     |
+| -------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `updates`            | `bazel-version modules node-version commits` | Which of `bazel-version`, `modules`, `node-version` and `commits` to make, separated by spaces.                                                                             |
+| `skip_modules`       | none                                         | Modules never to update, separated by spaces: neither their `bazel_dep` version nor their `git_override` commit. Modules named in an override never get a registry version. |
+| `bazelversion_files` | `.bazelversion`                              | The `.bazelversion` files to keep identical, separated by spaces. Glob patterns are expanded.                                                                               |
+| `auto_merge`         | `true`                                       | Whether to turn on auto-merge (squash) once the pull request is opened.                                                                                                     |
 
 ### Token
 

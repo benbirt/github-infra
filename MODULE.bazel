@@ -1,0 +1,41 @@
+module(
+    name = "github_infra",
+    version = "0.0.0",
+)
+
+# Compiles repos.jsonnet to JSON.
+bazel_dep(name = "rules_jsonnet", version = "0.7.2")
+
+# Use the C++ Jsonnet compiler instead of rules_jsonnet's default Go compiler.
+# Under Bazel 9, the Go compiler does not load without newer rules_go,
+# jsonnet_go and Go SDK pins than rules_jsonnet declares.
+bazel_dep(name = "jsonnet", version = "0.22.0")
+
+jsonnet = use_extension("@rules_jsonnet//jsonnet:extensions.bzl", "jsonnet")
+jsonnet.compiler(name = "cpp")
+
+# Shared formatting and Starlark linting targets; see tools/BUILD.bazel.
+bazel_dep(name = "bazel_style", version = "0.0.0", dev_dependency = True)
+git_override(
+    module_name = "bazel_style",
+    commit = "bc60126ccfc3e45b9ef984771b8a34457aea0dbd",
+    remote = "https://github.com/benbirt/bazel-style.git",
+)
+
+# Runs check-jsonschema and locks its requirements with uv; see
+# schema/BUILD.bazel.
+bazel_dep(name = "rules_python", version = "2.5.1", dev_dependency = True)
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip", dev_dependency = True)
+pip.parse(
+    hub_name = "github_infra_pip",
+    python_version = "3.14",
+    requirements_lock = "//schema:requirements.txt",
+)
+use_repo(pip, "github_infra_pip")
+
+uv = use_extension("@rules_python//python/uv:uv.bzl", "uv", dev_dependency = True)
+uv.configure()
+
+# Needed by rules_python's uv lock rule, which selects on @platforms.
+bazel_dep(name = "platforms", version = "1.1.0", dev_dependency = True)

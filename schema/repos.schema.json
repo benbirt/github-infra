@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "benbirt GitHub repositories",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["managed", "unmanaged"],
+  "properties": {
+    "managed": {
+      "description": "Repositories that follow the shared scheme, keyed by name.",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/repository" }
+    },
+    "unmanaged": {
+      "description": "Repositories left alone, keyed by name, mapped to the reason.",
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "label": {
+      "description": "Bazel label in the repository with an explicit target name, e.g. //site:public.",
+      "type": "string",
+      "pattern": "^//[^:]*:[^:]+$"
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["build", "required_checks", "dependabot"],
+      "properties": {
+        "visibility": {
+          "enum": ["public", "private"],
+          "default": "public"
+        },
+        "build": {
+          "description": "Build and test system. Only bazel repositories receive Bazel updates or may set pages, tofu or bazel_updates.",
+          "enum": ["bazel", "nix", "none"]
+        },
+        "required_checks": {
+          "description": "Job names of status checks required before merging a pull request into the default branch. May be empty.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "direct_pushes": {
+          "description": "Whether commits may be pushed directly to the default branch without a pull request, for repositories whose own workflows commit there.",
+          "type": "boolean",
+          "default": false
+        },
+        "dependabot": {
+          "description": "Package ecosystems configured in the repository's hand-written .github/dependabot.yml.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "pages": {
+          "description": "GitHub Pages site deployed from the default branch. Omit when there is none.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["target", "domain"],
+          "properties": {
+            "target": {
+              "description": "Bazel target whose output directory is the site.",
+              "$ref": "#/$defs/label"
+            },
+            "domain": {
+              "description": "Custom domain for the site.",
+              "type": "string",
+              "format": "hostname"
+            }
+          }
+        },
+        "tofu": {
+          "description": "OpenTofu root modules applied from the default branch, as tf_root targets.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/label" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "bazel_updates": {
+          "description": "Inputs to the Bazel updates workflow that differ from its defaults.",
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "skip_modules": {
+              "description": "Bazel module names to exclude from bazel_dep and git_override updates.",
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "bazelversion_files": {
+              "description": "Paths to .bazelversion files to update together. Glob patterns are expanded.",
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "auto_merge": {
+              "description": "Whether to enable squash auto-merge on opened pull requests.",
+              "type": "boolean",
+              "default": true
+            }
+          }
+        }
+      },
+      "if": {
+        "anyOf": [{ "required": ["pages"] }, { "required": ["tofu"] }, { "required": ["bazel_updates"] }]
+      },
+      "then": {
+        "properties": { "build": { "const": "bazel" } }
+      }
+    }
+  }
+}
