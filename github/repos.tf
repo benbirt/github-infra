@@ -30,9 +30,9 @@ resource "github_repository" "this" {
   allow_merge_commit          = true
   allow_squash_merge          = true
   allow_rebase_merge          = true
-  allow_auto_merge            = try(local.as_found[each.key].allow_auto_merge, true)
+  allow_auto_merge            = true
   allow_update_branch         = false
-  delete_branch_on_merge      = try(local.as_found[each.key].delete_branch_on_merge, true)
+  delete_branch_on_merge      = true
   web_commit_signoff_required = false
   merge_commit_title          = "MERGE_MESSAGE"
   merge_commit_message        = "PR_TITLE"
@@ -44,10 +44,10 @@ resource "github_repository" "this" {
     for_each = try(each.value.visibility, "public") == "public" ? [1] : []
     content {
       secret_scanning {
-        status = try(local.as_found[each.key].secret_scanning, true) ? "enabled" : "disabled"
+        status = "enabled"
       }
       secret_scanning_push_protection {
-        status = try(local.as_found[each.key].secret_scanning, true) ? "enabled" : "disabled"
+        status = "enabled"
       }
     }
   }
