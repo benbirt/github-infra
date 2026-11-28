@@ -54,7 +54,7 @@ local fork = 'Fork kept for upstream pull requests.';
     },
 
     'github-infra': {
-      description: "Reusable GitHub Actions workflows shared across benbirt's repositories",
+      description: 'Shared configuration for the benbirt GitHub account: the repository list, managed repository settings and reusable GitHub Actions workflows.',
       build: 'bazel',
       required_checks: ['lint'],
       dependabot: ['github-actions', 'pip', 'opentofu'],
