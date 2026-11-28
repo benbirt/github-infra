@@ -51,6 +51,10 @@ resource "github_repository" "this" {
       }
     }
   }
+
+  # Removing a repository from `managed` archives it on GitHub rather than
+  # deleting it.
+  archive_on_destroy = true
 }
 
 # Protects the default branch against deletion and force pushes, skipped where
