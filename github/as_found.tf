@@ -6,10 +6,7 @@
 locals {
   as_found = {
     "git-witness" = {
-      allow_auto_merge       = false
-      delete_branch_on_merge = false
-      secret_scanning        = false
-      ruleset                = false
+      ruleset = false
     }
     # Trailing slash differs from repos.tf's https://<pages.domain>.
     eavesbard     = { homepage_url = "https://eavesbard.com/" }
