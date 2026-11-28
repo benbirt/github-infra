@@ -12,8 +12,4 @@ locals {
     eavesbard     = { homepage_url = "https://eavesbard.com/" }
     "tlog-viewer" = { homepage_url = "https://tlog.benbirt.io/" }
   }
-
-  # Required checks on these repositories currently accept a status from any
-  # source (integration_id = 0) instead of only GitHub Actions.
-  checks_from_any_source = ["bazel-style", "benbirt.io", "flip7-scorecard", "github-infra"]
 }
