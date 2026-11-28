@@ -5,9 +5,8 @@
 locals {
   repos = jsondecode(file("${path.module}/../repos.json")).managed
 
-  # GitHub Actions' app ID. Used as integration_id on required checks so a
-  # status with the same name from anywhere else does not count, except for
-  # repositories in checks_from_any_source.
+  # GitHub Actions' app ID. Requiring it on each check means a status with the
+  # same name from anywhere else does not count.
   github_actions_app_id = 15368
 }
 
@@ -56,7 +55,7 @@ resource "github_repository" "this" {
 # Protects the default branch against deletion and force pushes, skipped where
 # as_found.tf sets ruleset = false. Pull requests are required unless
 # direct_pushes is set; required_checks, when non-empty, must come from GitHub
-# Actions except for repositories in checks_from_any_source.
+# Actions.
 resource "github_repository_ruleset" "default_branch" {
   for_each = { for name, repo in local.repos : name => repo if try(local.as_found[name].ruleset, true) }
 
@@ -98,7 +97,7 @@ resource "github_repository_ruleset" "default_branch" {
           for_each = each.value.required_checks
           content {
             context        = required_check.value
-            integration_id = contains(local.checks_from_any_source, each.key) ? 0 : local.github_actions_app_id
+            integration_id = local.github_actions_app_id
           }
         }
       }
