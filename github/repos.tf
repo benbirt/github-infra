@@ -12,14 +12,14 @@ locals {
 }
 
 # Shared repository settings plus per-repository description, wiki, visibility
-# and homepage. By default the homepage is https://<pages.domain> when Pages is
-# set and empty otherwise; temporary overrides live in as_found.tf.
+# and homepage. The homepage is https://<pages.domain> when Pages is set and
+# empty otherwise.
 resource "github_repository" "this" {
   for_each = local.repos
 
   name         = each.key
   description  = try(each.value.description, null)
-  homepage_url = try(local.as_found[each.key].homepage_url, "https://${each.value.pages.domain}", null)
+  homepage_url = try("https://${each.value.pages.domain}", null)
   visibility   = try(each.value.visibility, "public")
 
   has_issues      = true

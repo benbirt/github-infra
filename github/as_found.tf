@@ -8,9 +8,6 @@ locals {
     "git-witness" = {
       ruleset = false
     }
-    # Trailing slash differs from repos.tf's https://<pages.domain>.
-    eavesbard     = { homepage_url = "https://eavesbard.com/" }
-    "tlog-viewer" = { homepage_url = "https://tlog.benbirt.io/" }
   }
 
   # Required checks on these repositories currently accept a status from any
