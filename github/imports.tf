@@ -4,7 +4,7 @@
 
 locals {
   # GitHub ruleset IDs for repositories that already have a default-branch
-  # ruleset. git-witness has none yet, so OpenTofu creates it.
+  # ruleset. git-witness has none (see as_found.tf).
   existing_rulesets = {
     "bazel-style"     = 27851245
     "benbirt.io"      = 27262449

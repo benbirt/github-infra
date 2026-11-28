@@ -1,24 +1,25 @@
-# Repository settings, default-branch rulesets and GitHub Pages for every
-# repository under `managed` in repos.jsonnet (compiled by //:repos to
-# ../repos.json).
+# Repository settings, default-branch rulesets and GitHub Pages for the
+# repositories under `managed` in repos.jsonnet (compiled by //:repos to
+# ../repos.json), with temporary overrides in as_found.tf.
 
 locals {
   repos = jsondecode(file("${path.module}/../repos.json")).managed
 
-  # GitHub Actions' app ID. Requiring it on each check means a status with the
-  # same name from anywhere else does not count.
+  # GitHub Actions' app ID. Used as integration_id on required checks so a
+  # status with the same name from anywhere else does not count, except for
+  # repositories in checks_from_any_source.
   github_actions_app_id = 15368
 }
 
 # Shared repository settings plus per-repository description, wiki, visibility
-# and homepage. The homepage is https://<pages.domain> when Pages is set and
-# empty otherwise.
+# and homepage. By default the homepage is https://<pages.domain> when Pages is
+# set and empty otherwise; temporary overrides live in as_found.tf.
 resource "github_repository" "this" {
   for_each = local.repos
 
   name         = each.key
   description  = try(each.value.description, null)
-  homepage_url = try("https://${each.value.pages.domain}", null)
+  homepage_url = try(local.as_found[each.key].homepage_url, "https://${each.value.pages.domain}", null)
   visibility   = try(each.value.visibility, "public")
 
   has_issues      = true
@@ -29,9 +30,9 @@ resource "github_repository" "this" {
   allow_merge_commit          = true
   allow_squash_merge          = true
   allow_rebase_merge          = true
-  allow_auto_merge            = true
+  allow_auto_merge            = try(local.as_found[each.key].allow_auto_merge, true)
   allow_update_branch         = false
-  delete_branch_on_merge      = true
+  delete_branch_on_merge      = try(local.as_found[each.key].delete_branch_on_merge, true)
   web_commit_signoff_required = false
   merge_commit_title          = "MERGE_MESSAGE"
   merge_commit_message        = "PR_TITLE"
@@ -43,24 +44,21 @@ resource "github_repository" "this" {
     for_each = try(each.value.visibility, "public") == "public" ? [1] : []
     content {
       secret_scanning {
-        status = "enabled"
+        status = try(local.as_found[each.key].secret_scanning, true) ? "enabled" : "disabled"
       }
       secret_scanning_push_protection {
-        status = "enabled"
+        status = try(local.as_found[each.key].secret_scanning, true) ? "enabled" : "disabled"
       }
     }
   }
-
-  # Removing a repository from `managed` archives it on GitHub rather than
-  # deleting it.
-  archive_on_destroy = true
 }
 
-# Protects the default branch against deletion and force pushes. Pull requests
-# are required unless direct_pushes is set; required_checks, when non-empty,
-# must come from GitHub Actions.
+# Protects the default branch against deletion and force pushes, skipped where
+# as_found.tf sets ruleset = false. Pull requests are required unless
+# direct_pushes is set; required_checks, when non-empty, must come from GitHub
+# Actions except for repositories in checks_from_any_source.
 resource "github_repository_ruleset" "default_branch" {
-  for_each = local.repos
+  for_each = { for name, repo in local.repos : name => repo if try(local.as_found[name].ruleset, true) }
 
   name        = "main"
   repository  = github_repository.this[each.key].name
@@ -100,7 +98,7 @@ resource "github_repository_ruleset" "default_branch" {
           for_each = each.value.required_checks
           content {
             context        = required_check.value
-            integration_id = local.github_actions_app_id
+            integration_id = contains(local.checks_from_any_source, each.key) ? 0 : local.github_actions_app_id
           }
         }
       }
