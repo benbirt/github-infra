@@ -31,6 +31,16 @@
           "enum": ["public", "private"],
           "default": "public"
         },
+        "description": {
+          "description": "GitHub repository description. Omit when there is none.",
+          "type": "string",
+          "minLength": 1
+        },
+        "wiki": {
+          "description": "Whether to enable the GitHub wiki.",
+          "type": "boolean",
+          "default": true
+        },
         "build": {
           "description": "Build and test system. Only bazel repositories receive Bazel updates or may set pages, tofu or bazel_updates.",
           "enum": ["bazel", "nix", "none"]
@@ -71,7 +81,7 @@
           }
         },
         "tofu": {
-          "description": "OpenTofu root modules applied from the default branch, as tf_root targets.",
+          "description": "OpenTofu root modules applied from the default branch, as tf_deploy targets.",
           "type": "array",
           "items": { "$ref": "#/$defs/label" },
           "minItems": 1,

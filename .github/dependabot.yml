@@ -1,5 +1,5 @@
-# Weekly updates of the actions the workflows use and the Python packages in
-# schema/requirements.txt.
+# Weekly updates of the actions the workflows use, the Python packages in
+# schema/requirements.txt and the OpenTofu providers in github/.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -21,3 +21,10 @@ updates:
     groups:
       pip:
         patterns: ["*"]
+
+  - package-ecosystem: opentofu
+    directory: /github
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 3

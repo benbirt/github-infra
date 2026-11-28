@@ -12,12 +12,14 @@ local fork = 'Fork kept for upstream pull requests.';
 {
   managed: {
     'bazel-style': {
+      description: "Shared formatting and lint configuration for benbirt's Bazel repositories",
       build: 'bazel',
       required_checks: ['test'],
       dependabot: ['npm', 'pip', 'github-actions'],
     },
 
     'benbirt.io': {
+      description: 'Source of benbirt.io, my personal site',
       build: 'bazel',
       required_checks: ['build'],
       dependabot: ['opentofu', 'github-actions'],
@@ -34,6 +36,7 @@ local fork = 'Fork kept for upstream pull requests.';
     },
 
     'flip7-scorecard': {
+      description: 'A scorecard for the card game Flip 7, with With a Vengeance negative scores',
       build: 'bazel',
       required_checks: ['test'],
       dependabot: ['github-actions'],
@@ -41,6 +44,7 @@ local fork = 'Fork kept for upstream pull requests.';
     },
 
     'git-witness': {
+      wiki: false,
       build: 'none',
       // Its only workflow responds to issues, so nothing runs on pull requests.
       required_checks: [],
@@ -50,12 +54,15 @@ local fork = 'Fork kept for upstream pull requests.';
     },
 
     'github-infra': {
+      description: "Reusable GitHub Actions workflows shared across benbirt's repositories",
       build: 'bazel',
       required_checks: ['lint'],
-      dependabot: ['github-actions', 'pip'],
+      dependabot: ['github-actions', 'pip', 'opentofu'],
+      tofu: ['//github:github'],
     },
 
     rules_tofu: {
+      description: 'Bazel rules for OpenTofu and Terraform configs',
       build: 'bazel',
       required_checks: [
         'lint',
@@ -82,6 +89,8 @@ local fork = 'Fork kept for upstream pull requests.';
     },
 
     'song-of-time': {
+      description: 'Declarative, reproducible, impermanent NixOS config for termina',
+      wiki: false,
       visibility: 'private',
       build: 'nix',
       required_checks: ['termina', 'windfall'],
@@ -89,6 +98,7 @@ local fork = 'Fork kept for upstream pull requests.';
     },
 
     'tlog-viewer': {
+      description: 'A static viewer for transparency logs that verifies what it shows, in the browser. Currently covers the PAIC tlog-tiles logs.',
       build: 'bazel',
       required_checks: ['test'],
       dependabot: ['npm', 'gomod', 'github-actions'],

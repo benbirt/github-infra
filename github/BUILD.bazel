@@ -1,0 +1,12 @@
+load("@rules_tofu//tf:defs.bzl", "tf_deploy")
+
+# Validates the OpenTofu module (`bazel build //github`) and creates
+# `bazel run` targets `//github:github.plan` and `//github:github.apply`.
+# `//:repos` compiles repos.jsonnet to repos.json, which repos.tf reads at
+# ../repos.json.
+tf_deploy(
+    name = "github",
+    srcs = glob(["*.tf"]),
+    data = ["//:repos"],
+    providers = ["@tf_providers//integrations/github"],
+)

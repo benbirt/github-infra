@@ -1,7 +1,7 @@
 # github-infra
 
-Shared configuration for the benbirt GitHub account: the repository list and
-reusable GitHub Actions workflows.
+Shared configuration for the benbirt GitHub account: the repository list,
+managed repository settings and reusable GitHub Actions workflows.
 
 ## Repositories
 
@@ -13,6 +13,24 @@ Run `bazel build //:repos` to compile the list to `bazel-bin/repos.json`. Run
 `bazel test //...` to check the compiled list against
 [`schema/repos.schema.json`](schema/repos.schema.json), which documents the
 fields and their defaults.
+
+## Repository settings
+
+The OpenTofu module in [`github/`](github/) manages repository settings,
+default-branch rulesets and GitHub Pages for every repository under `managed` in
+`repos.jsonnet`. See [`github/repos.tf`](github/repos.tf) for what is set.
+
+Settings change through pull requests editing `repos.jsonnet` or `github/`.
+[`settings.yaml`](.github/workflows/settings.yaml) plans on the pull request and
+applies on merge to `main`.
+
+The workflow uses two repository secrets:
+
+- `ADMIN_TOKEN`: a fine-grained personal access token with read and write access
+  to **Administration**, **Contents** and **Pages** on the managed repositories,
+  held only by this repository.
+- `CLOUDFLARE_API_TOKEN`: a Cloudflare API token with read and write access to
+  the `github-infra-tofu-state` R2 state bucket only.
 
 ## Bazel updates
 
