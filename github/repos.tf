@@ -53,12 +53,12 @@ resource "github_repository" "this" {
   }
 }
 
-# Protects the default branch against deletion and force pushes, skipped where
-# as_found.tf sets ruleset = false. Pull requests are required unless
-# direct_pushes is set; required_checks, when non-empty, must come from GitHub
-# Actions except for repositories in checks_from_any_source.
+# Protects the default branch against deletion and force pushes. Pull requests
+# are required unless direct_pushes is set; required_checks, when non-empty,
+# must come from GitHub Actions except for repositories in
+# checks_from_any_source.
 resource "github_repository_ruleset" "default_branch" {
-  for_each = { for name, repo in local.repos : name => repo if try(local.as_found[name].ruleset, true) }
+  for_each = local.repos
 
   name        = "main"
   repository  = github_repository.this[each.key].name

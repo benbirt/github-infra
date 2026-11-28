@@ -5,9 +5,6 @@
 
 locals {
   as_found = {
-    "git-witness" = {
-      ruleset = false
-    }
     # Trailing slash differs from repos.tf's https://<pages.domain>.
     eavesbard     = { homepage_url = "https://eavesbard.com/" }
     "tlog-viewer" = { homepage_url = "https://tlog.benbirt.io/" }
