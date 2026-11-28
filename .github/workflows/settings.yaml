@@ -1,0 +1,68 @@
+name: Settings
+
+# Plans OpenTofu changes on pull requests without taking the state lock, and
+# applies them on pushes to main and manual runs on main, waiting up to 15
+# minutes for the lock.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "github/**"
+      - "repos.jsonnet"
+      - "tools/r2-keys.sh"
+      - "MODULE.bazel"
+      - "MODULE.bazel.lock"
+      - ".github/workflows/settings.yaml"
+  pull_request:
+    paths:
+      - "github/**"
+      - "repos.jsonnet"
+      - "tools/r2-keys.sh"
+      - "MODULE.bazel"
+      - "MODULE.bazel.lock"
+      - ".github/workflows/settings.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Each pull request plans in its own group and cancels older plans on new
+# pushes. Applies share one group and are never cancelled mid-run.
+concurrency:
+  group: settings-${{ github.event_name == 'pull_request' && format('plan-{0}', github.event.pull_request.number) || 'apply' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  settings:
+    # Skip fork pull requests, which cannot read secrets, and Dependabot pull
+    # requests, so ADMIN_TOKEN is not given to them. Provider updates are
+    # applied after they merge.
+    if: >-
+      github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: R2 keys
+        run: |
+          keys=$(tools/r2-keys.sh)
+          while IFS= read -r line; do
+            echo "::add-mask::${line#*=}"
+            echo "$line" >> "$GITHUB_ENV"
+          done <<<"$keys"
+      - uses: bazel-contrib/setup-bazel@f34d6a05eae3c24acab7fa54587492daeaeffdab # 0.19.2
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+      - name: Plan
+        if: github.event_name == 'pull_request'
+        run: bazel run --lockfile_mode=error //github:github.plan -- -lock=false -no-color
+      - name: Apply
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: bazel run --lockfile_mode=error //github:github.apply -- -lock-timeout=15m -auto-approve -no-color

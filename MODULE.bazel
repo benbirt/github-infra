@@ -39,3 +39,18 @@ uv.configure()
 
 # Needed by rules_python's uv lock rule, which selects on @platforms.
 bazel_dep(name = "platforms", version = "1.1.0", dev_dependency = True)
+
+# Validates, plans and applies the OpenTofu module in github/; see
+# github/BUILD.bazel.
+bazel_dep(name = "rules_tofu", version = "0.7.0")
+
+tofu = use_extension("@rules_tofu//toolchain:extensions.bzl", "tofu")
+use_repo(tofu, "tofu_toolchains")
+
+# Provider versions are pinned in github/main.tf and github/.terraform.lock.hcl,
+# as in a plain OpenTofu project, so Dependabot can update them. After changing
+# a version in github/main.tf, rewrite the lock with:
+#   bazel run @tf_providers//:pin
+tf_providers = use_extension("@rules_tofu//tf/providers:extensions.bzl", "tf_providers")
+tf_providers.from_lock(lock_file = "//github:.terraform.lock.hcl")
+use_repo(tf_providers, "tf_providers")

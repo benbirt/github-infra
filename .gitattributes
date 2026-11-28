@@ -1,2 +1,8 @@
-# Written by uv: GitHub collapses its diffs, and //tools:format leaves it as written.
+# GitHub collapses diffs for linguist-generated files, and //tools:format leaves
+# them as written.
+
+# Written by uv.
 schema/requirements.txt linguist-generated
+
+# Written by `bazel run @tf_providers//:pin`.
+github/.terraform.lock.hcl linguist-generated
